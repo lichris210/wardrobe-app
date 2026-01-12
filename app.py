@@ -463,19 +463,150 @@ elif page == "My Closet":
         if filter_category != "All":
             filtered_items = [i for i in filtered_items if i["category"] == filter_category]
         
+        # Check if we're editing an item
+        if "editing_item_id" not in st.session_state:
+            st.session_state.editing_item_id = None
+        
         # Display items in a grid
         cols = st.columns(3)
         for idx, item in enumerate(filtered_items):
             with cols[idx % 3]:
-                if display_clothing_item(item, show_delete=True):
-                    # Delete item
-                    wardrobe["items"] = [i for i in wardrobe["items"] if i["id"] != item["id"]]
-                    # Delete image file
-                    if os.path.exists(item["image_path"]):
-                        os.remove(item["image_path"])
-                    save_wardrobe(wardrobe)
-                    st.session_state.wardrobe = wardrobe
-                    st.rerun()
+                if os.path.exists(item["image_path"]):
+                    st.image(item["image_path"], use_container_width=True)
+                st.caption(f"**{item['name']}**")
+                st.caption(f"{item['category']} • {item['color']}")
+                
+                # Action buttons
+                col_edit, col_delete = st.columns(2)
+                with col_edit:
+                    if st.button("✏️ Edit", key=f"edit_{item['id']}"):
+                        st.session_state.editing_item_id = item['id']
+                        st.rerun()
+                with col_delete:
+                    if st.button("🗑️", key=f"del_{item['id']}"):
+                        # Delete item
+                        wardrobe["items"] = [i for i in wardrobe["items"] if i["id"] != item["id"]]
+                        # Delete image file
+                        if os.path.exists(item["image_path"]):
+                            os.remove(item["image_path"])
+                        # Delete tag image if exists
+                        if item.get("tag_image_path") and os.path.exists(item["tag_image_path"]):
+                            os.remove(item["tag_image_path"])
+                        save_wardrobe(wardrobe)
+                        st.session_state.wardrobe = wardrobe
+                        st.rerun()
+        
+        # Edit modal
+        if st.session_state.editing_item_id:
+            st.markdown("---")
+            st.subheader("✏️ Edit Item")
+            
+            # Find the item being edited
+            edit_item = next((i for i in wardrobe["items"] if i["id"] == st.session_state.editing_item_id), None)
+            
+            if edit_item:
+                # Show current image
+                col_img, col_form = st.columns([1, 2])
+                
+                with col_img:
+                    if os.path.exists(edit_item["image_path"]):
+                        st.image(edit_item["image_path"], use_container_width=True)
+                    
+                    # Option to replace image
+                    new_image = st.file_uploader(
+                        "Replace image (optional)",
+                        type=["jpg", "jpeg", "png", "webp"],
+                        key="edit_image_upload"
+                    )
+                    if new_image:
+                        new_image.seek(0)
+                        corrected_img = fix_image_orientation(new_image)
+                        st.image(corrected_img, caption="New image", use_container_width=True)
+                        new_image.seek(0)
+                
+                with col_form:
+                    with st.form("edit_item_form"):
+                        name = st.text_input("Item name", value=edit_item.get("name", ""))
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            category_idx = CATEGORIES.index(edit_item["category"]) if edit_item["category"] in CATEGORIES else 0
+                            category = st.selectbox("Category", CATEGORIES, index=category_idx)
+                            
+                            color_idx = COLORS.index(edit_item["color"]) if edit_item["color"] in COLORS else 0
+                            color = st.selectbox("Primary color", COLORS, index=color_idx)
+                        
+                        with col2:
+                            brand = st.text_input("Brand", value=edit_item.get("brand", "") or "")
+                            size = st.text_input("Size", value=edit_item.get("size", "") or "")
+                        
+                        # Style tags
+                        current_styles = edit_item.get("style", ["Casual"])
+                        valid_current_styles = [s for s in current_styles if s in STYLES] or ["Casual"]
+                        style = st.multiselect("Style tags", STYLES, default=valid_current_styles)
+                        
+                        # Occasions
+                        current_occasions = edit_item.get("occasions", ["Everyday"])
+                        valid_current_occasions = [o for o in current_occasions if o in OCCASIONS] or ["Everyday"]
+                        occasions = st.multiselect("Occasions", OCCASIONS, default=valid_current_occasions)
+                        
+                        # Seasons
+                        current_seasons = edit_item.get("seasons", ["All Season"])
+                        valid_current_seasons = [s for s in current_seasons if s in SEASONS] or ["All Season"]
+                        seasons = st.multiselect("Seasons", SEASONS, default=valid_current_seasons)
+                        
+                        # Additional details
+                        with st.expander("Additional Details"):
+                            material = st.text_input("Material", value=edit_item.get("material", "") or "")
+                            care_list = edit_item.get("care_instructions", [])
+                            care_str = "\n".join(care_list) if isinstance(care_list, list) else care_list or ""
+                            care = st.text_area("Care instructions", value=care_str)
+                        
+                        col_save, col_cancel = st.columns(2)
+                        with col_save:
+                            save_clicked = st.form_submit_button("💾 Save Changes", use_container_width=True)
+                        with col_cancel:
+                            cancel_clicked = st.form_submit_button("Cancel", use_container_width=True)
+                        
+                        if save_clicked:
+                            if not name:
+                                st.error("Please enter a name.")
+                            else:
+                                # Update item
+                                for i, item in enumerate(wardrobe["items"]):
+                                    if item["id"] == edit_item["id"]:
+                                        wardrobe["items"][i]["name"] = name
+                                        wardrobe["items"][i]["category"] = category
+                                        wardrobe["items"][i]["color"] = color
+                                        wardrobe["items"][i]["brand"] = brand
+                                        wardrobe["items"][i]["size"] = size
+                                        wardrobe["items"][i]["style"] = style
+                                        wardrobe["items"][i]["occasions"] = occasions
+                                        wardrobe["items"][i]["seasons"] = seasons
+                                        wardrobe["items"][i]["material"] = material
+                                        wardrobe["items"][i]["care_instructions"] = care.split("\n") if care else []
+                                        
+                                        # Replace image if new one uploaded
+                                        if new_image:
+                                            new_image.seek(0)
+                                            # Delete old image
+                                            if os.path.exists(item["image_path"]):
+                                                os.remove(item["image_path"])
+                                            # Save new image
+                                            new_path = save_image(new_image, item["id"])
+                                            wardrobe["items"][i]["image_path"] = new_path
+                                        
+                                        break
+                                
+                                save_wardrobe(wardrobe)
+                                st.session_state.wardrobe = wardrobe
+                                st.session_state.editing_item_id = None
+                                st.success(f"Updated '{name}'!")
+                                st.rerun()
+                        
+                        if cancel_clicked:
+                            st.session_state.editing_item_id = None
+                            st.rerun()
 
 
 # Page: Add Clothes
