@@ -57,9 +57,50 @@ def validate_openai_key(api_key):
         return False
 
 
+def fix_image_orientation(image_file):
+    """Fix image orientation based on EXIF data (iPhone photos come rotated)."""
+    image_file.seek(0)  # Ensure we're at the start
+    img = Image.open(image_file)
+    
+    try:
+        # Get EXIF data
+        from PIL import ExifTags
+        
+        # Find the orientation tag
+        for orientation_key in ExifTags.TAGS.keys():
+            if ExifTags.TAGS[orientation_key] == 'Orientation':
+                break
+        
+        exif = img._getexif()
+        if exif is not None:
+            orientation = exif.get(orientation_key)
+            
+            # Rotate based on orientation value
+            if orientation == 3:
+                img = img.rotate(180, expand=True)
+            elif orientation == 6:
+                img = img.rotate(270, expand=True)
+            elif orientation == 8:
+                img = img.rotate(90, expand=True)
+    except (AttributeError, KeyError, IndexError, TypeError):
+        # No EXIF data, return as-is
+        pass
+    
+    return img
+
+
 def image_to_base64(image_file):
-    """Convert uploaded image to base64 string."""
-    return base64.b64encode(image_file.getvalue()).decode('utf-8')
+    """Convert uploaded image to base64 string, fixing orientation first."""
+    image_file.seek(0)  # Ensure we're at the start
+    img = fix_image_orientation(image_file)
+    
+    # Convert back to bytes
+    buffer = io.BytesIO()
+    img_format = 'JPEG' if image_file.type == 'image/jpeg' else 'PNG'
+    img.save(buffer, format=img_format)
+    buffer.seek(0)
+    
+    return base64.b64encode(buffer.getvalue()).decode('utf-8')
 
 
 def analyze_garment_image(api_key, image_base64, image_type="image/jpeg"):
@@ -192,6 +233,9 @@ STYLES = ["Casual", "Formal", "Business", "Streetwear", "Athleisure", "Smart Cas
 OCCASIONS = ["Everyday", "Work", "Date Night", "Party", "Workout", "Outdoor", "Formal Event", "Loungewear"]
 SEASONS = ["Spring", "Summer", "Fall", "Winter", "All Season"]
 
+# Order for displaying outfit items (top to bottom)
+CATEGORY_ORDER = ["Accessory", "Outerwear", "Top", "Dress/Jumpsuit", "Bottom", "Shoes"]
+
 
 def load_wardrobe():
     """Load wardrobe data from JSON file."""
@@ -208,13 +252,23 @@ def save_wardrobe(data):
 
 
 def save_image(uploaded_file, item_id):
-    """Save uploaded image and return the file path."""
-    extension = uploaded_file.name.split(".")[-1]
+    """Save uploaded image with corrected orientation and return the file path."""
+    uploaded_file.seek(0)  # Ensure we're at the start
+    
+    # Fix orientation
+    img = fix_image_orientation(uploaded_file)
+    
+    # Determine format and extension
+    extension = uploaded_file.name.split(".")[-1].lower()
+    if extension not in ['jpg', 'jpeg', 'png', 'webp']:
+        extension = 'jpg'
+    
     filename = f"{item_id}.{extension}"
     filepath = os.path.join(IMAGES_DIR, filename)
     
-    with open(filepath, "wb") as f:
-        f.write(uploaded_file.getbuffer())
+    # Save with correct orientation
+    img_format = 'JPEG' if extension in ['jpg', 'jpeg'] else extension.upper()
+    img.save(filepath, format=img_format)
     
     return filepath
 
@@ -447,7 +501,11 @@ elif page == "Add Clothes":
             key="garment_upload"
         )
         if garment_file:
-            st.image(garment_file, caption="Garment", use_container_width=True)
+            # Display with corrected orientation
+            garment_file.seek(0)
+            corrected_garment = fix_image_orientation(garment_file)
+            st.image(corrected_garment, caption="Garment", use_container_width=True)
+            garment_file.seek(0)  # Reset for later processing
     
     with col2:
         st.markdown("**Tag Photo** (optional)")
@@ -457,7 +515,11 @@ elif page == "Add Clothes":
             key="tag_upload"
         )
         if tag_file:
-            st.image(tag_file, caption="Tag", use_container_width=True)
+            # Display with corrected orientation
+            tag_file.seek(0)
+            corrected_tag = fix_image_orientation(tag_file)
+            st.image(corrected_tag, caption="Tag", use_container_width=True)
+            tag_file.seek(0)  # Reset for later processing
     
     # Step 2: Analyze with AI
     if garment_file:
@@ -621,9 +683,15 @@ elif page == "Generate Outfit":
             
             outfit = st.session_state.current_outfit
             
+            # Sort outfit items by category order (top to bottom)
+            sorted_outfit = sorted(
+                outfit.items(),
+                key=lambda x: CATEGORY_ORDER.index(x[0]) if x[0] in CATEGORY_ORDER else 99
+            )
+            
             # Display outfit items
-            cols = st.columns(len(outfit))
-            for idx, (category, item) in enumerate(outfit.items()):
+            cols = st.columns(len(sorted_outfit))
+            for idx, (category, item) in enumerate(sorted_outfit):
                 with cols[idx]:
                     st.markdown(f"**{category}**")
                     if os.path.exists(item["image_path"]):
@@ -664,6 +732,12 @@ elif page == "Saved Outfits":
             with st.expander(f"👔 {outfit_data['name']}", expanded=False):
                 # Get outfit items
                 outfit_items = [item for item in wardrobe["items"] if item["id"] in outfit_data["items"]]
+                
+                # Sort by category order
+                outfit_items = sorted(
+                    outfit_items,
+                    key=lambda x: CATEGORY_ORDER.index(x["category"]) if x["category"] in CATEGORY_ORDER else 99
+                )
                 
                 if outfit_items:
                     cols = st.columns(len(outfit_items))
