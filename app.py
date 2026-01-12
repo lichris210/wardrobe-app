@@ -466,6 +466,10 @@ elif page == "My Closet":
         # Check if we're editing an item
         if "editing_item_id" not in st.session_state:
             st.session_state.editing_item_id = None
+
+        # Initialize session state for edit image upload
+        if "edit_uploaded_image" not in st.session_state:
+            st.session_state.edit_uploaded_image = None
         
         # Display items in a grid
         cols = st.columns(3)
@@ -481,6 +485,7 @@ elif page == "My Closet":
                 with col_edit:
                     if st.button("✏️ Edit", key=f"edit_{item['id']}"):
                         st.session_state.editing_item_id = item['id']
+                        st.session_state.edit_uploaded_image = None  # Clear any previous uploads
                         st.rerun()
                 with col_delete:
                     if st.button("🗑️", key=f"del_{item['id']}"):
@@ -511,18 +516,27 @@ elif page == "My Closet":
                 with col_img:
                     if os.path.exists(edit_item["image_path"]):
                         st.image(edit_item["image_path"], use_container_width=True)
-                    
+
                     # Option to replace image
                     new_image = st.file_uploader(
                         "Replace image (optional)",
                         type=["jpg", "jpeg", "png", "webp"],
                         key="edit_image_upload"
                     )
+                    # Store uploaded image in session state
                     if new_image:
                         new_image.seek(0)
+                        st.session_state.edit_uploaded_image = new_image
                         corrected_img = fix_image_orientation(new_image)
                         st.image(corrected_img, caption="New image", use_container_width=True)
                         new_image.seek(0)
+
+                    # Display preview of stored image if exists
+                    if st.session_state.edit_uploaded_image and not new_image:
+                        st.session_state.edit_uploaded_image.seek(0)
+                        corrected_img = fix_image_orientation(st.session_state.edit_uploaded_image)
+                        st.image(corrected_img, caption="New image (ready to save)", use_container_width=True)
+                        st.session_state.edit_uploaded_image.seek(0)
                 
                 with col_form:
                     with st.form("edit_item_form"):
@@ -585,27 +599,29 @@ elif page == "My Closet":
                                         wardrobe["items"][i]["seasons"] = seasons
                                         wardrobe["items"][i]["material"] = material
                                         wardrobe["items"][i]["care_instructions"] = care.split("\n") if care else []
-                                        
-                                        # Replace image if new one uploaded
-                                        if new_image:
-                                            new_image.seek(0)
+
+                                        # Replace image if new one uploaded (check session state)
+                                        if st.session_state.edit_uploaded_image:
+                                            st.session_state.edit_uploaded_image.seek(0)
                                             # Delete old image
                                             if os.path.exists(item["image_path"]):
                                                 os.remove(item["image_path"])
                                             # Save new image
-                                            new_path = save_image(new_image, item["id"])
+                                            new_path = save_image(st.session_state.edit_uploaded_image, item["id"])
                                             wardrobe["items"][i]["image_path"] = new_path
-                                        
+
                                         break
-                                
+
                                 save_wardrobe(wardrobe)
                                 st.session_state.wardrobe = wardrobe
                                 st.session_state.editing_item_id = None
+                                st.session_state.edit_uploaded_image = None  # Clear the uploaded image
                                 st.success(f"Updated '{name}'!")
                                 st.rerun()
                         
                         if cancel_clicked:
                             st.session_state.editing_item_id = None
+                            st.session_state.edit_uploaded_image = None  # Clear the uploaded image
                             st.rerun()
 
 
