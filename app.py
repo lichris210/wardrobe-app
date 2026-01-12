@@ -470,46 +470,16 @@ elif page == "My Closet":
         # Initialize session state for edit image upload
         if "edit_uploaded_image" not in st.session_state:
             st.session_state.edit_uploaded_image = None
-        
-        # Display items in a grid
-        cols = st.columns(3)
-        for idx, item in enumerate(filtered_items):
-            with cols[idx % 3]:
-                if os.path.exists(item["image_path"]):
-                    st.image(item["image_path"], use_container_width=True)
-                st.caption(f"**{item['name']}**")
-                st.caption(f"{item['category']} • {item['color']}")
-                
-                # Action buttons
-                col_edit, col_delete = st.columns(2)
-                with col_edit:
-                    if st.button("✏️ Edit", key=f"edit_{item['id']}"):
-                        st.session_state.editing_item_id = item['id']
-                        st.session_state.edit_uploaded_image = None  # Clear any previous uploads
-                        st.rerun()
-                with col_delete:
-                    if st.button("🗑️", key=f"del_{item['id']}"):
-                        # Delete item
-                        wardrobe["items"] = [i for i in wardrobe["items"] if i["id"] != item["id"]]
-                        # Delete image file
-                        if os.path.exists(item["image_path"]):
-                            os.remove(item["image_path"])
-                        # Delete tag image if exists
-                        if item.get("tag_image_path") and os.path.exists(item["tag_image_path"]):
-                            os.remove(item["tag_image_path"])
-                        save_wardrobe(wardrobe)
-                        st.session_state.wardrobe = wardrobe
-                        st.rerun()
-        
-        # Edit modal
+
+        # If editing, show ONLY the edit form. Otherwise show the grid.
         if st.session_state.editing_item_id:
-            st.markdown("---")
-            st.subheader("✏️ Edit Item")
-            
             # Find the item being edited
             edit_item = next((i for i in wardrobe["items"] if i["id"] == st.session_state.editing_item_id), None)
-            
+
             if edit_item:
+                st.subheader(f"✏️ Editing: {edit_item.get('name', 'Item')}")
+                st.markdown("---")
+
                 # Show current image
                 col_img, col_form = st.columns([1, 2])
                 
@@ -622,6 +592,36 @@ elif page == "My Closet":
                         if cancel_clicked:
                             st.session_state.editing_item_id = None
                             st.session_state.edit_uploaded_image = None  # Clear the uploaded image
+                            st.rerun()
+        else:
+            # Display items in a grid (only when not editing)
+            cols = st.columns(3)
+            for idx, item in enumerate(filtered_items):
+                with cols[idx % 3]:
+                    if os.path.exists(item["image_path"]):
+                        st.image(item["image_path"], use_container_width=True)
+                    st.caption(f"**{item['name']}**")
+                    st.caption(f"{item['category']} • {item['color']}")
+
+                    # Action buttons
+                    col_edit, col_delete = st.columns(2)
+                    with col_edit:
+                        if st.button("✏️ Edit", key=f"edit_{item['id']}"):
+                            st.session_state.editing_item_id = item['id']
+                            st.session_state.edit_uploaded_image = None  # Clear any previous uploads
+                            st.rerun()
+                    with col_delete:
+                        if st.button("🗑️", key=f"del_{item['id']}"):
+                            # Delete item
+                            wardrobe["items"] = [i for i in wardrobe["items"] if i["id"] != item["id"]]
+                            # Delete image file
+                            if os.path.exists(item["image_path"]):
+                                os.remove(item["image_path"])
+                            # Delete tag image if exists
+                            if item.get("tag_image_path") and os.path.exists(item["tag_image_path"]):
+                                os.remove(item["tag_image_path"])
+                            save_wardrobe(wardrobe)
+                            st.session_state.wardrobe = wardrobe
                             st.rerun()
 
 
