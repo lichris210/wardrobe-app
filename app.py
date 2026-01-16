@@ -281,8 +281,10 @@ def get_image_base64(filepath):
 
 def display_clothing_item(item, show_delete=False):
     """Display a clothing item card."""
-    if os.path.exists(item["image_path"]):
+    if item.get("image_path") and os.path.exists(item["image_path"]):
         st.image(item["image_path"], use_container_width=True)
+    else:
+        st.markdown("📷 *No image*")
     st.caption(f"**{item['name']}**")
     st.caption(f"{item['category']} • {item['color']}")
     if show_delete:
@@ -484,8 +486,10 @@ elif page == "My Closet":
                 col_img, col_form = st.columns([1, 2])
                 
                 with col_img:
-                    if os.path.exists(edit_item["image_path"]):
+                    if edit_item.get("image_path") and os.path.exists(edit_item["image_path"]):
                         st.image(edit_item["image_path"], use_container_width=True)
+                    else:
+                        st.info("📷 No image - upload one below")
 
                     # Option to replace image
                     new_image = st.file_uploader(
@@ -598,8 +602,16 @@ elif page == "My Closet":
             cols = st.columns(3)
             for idx, item in enumerate(filtered_items):
                 with cols[idx % 3]:
-                    if os.path.exists(item["image_path"]):
+                    if item.get("image_path") and os.path.exists(item["image_path"]):
                         st.image(item["image_path"], use_container_width=True)
+                    else:
+                        # Show placeholder for items without images
+                        st.markdown(
+                            """<div style='background-color: #f0f2f6; padding: 60px 20px; text-align: center; border-radius: 10px; margin-bottom: 10px;'>
+                            📷<br>No image
+                            </div>""",
+                            unsafe_allow_html=True
+                        )
                     st.caption(f"**{item['name']}**")
                     st.caption(f"{item['category']} • {item['color']}")
 
@@ -841,8 +853,10 @@ elif page == "Generate Outfit":
             for idx, (category, item) in enumerate(sorted_outfit):
                 with cols[idx]:
                     st.markdown(f"**{category}**")
-                    if os.path.exists(item["image_path"]):
+                    if item.get("image_path") and os.path.exists(item["image_path"]):
                         st.image(item["image_path"], use_container_width=True)
+                    else:
+                        st.markdown("📷 *No image*")
                     st.caption(item["name"])
             
             # Save outfit button
@@ -890,8 +904,10 @@ elif page == "Saved Outfits":
                     cols = st.columns(len(outfit_items))
                     for idx, item in enumerate(outfit_items):
                         with cols[idx]:
-                            if os.path.exists(item["image_path"]):
+                            if item.get("image_path") and os.path.exists(item["image_path"]):
                                 st.image(item["image_path"], use_container_width=True)
+                            else:
+                                st.markdown("📷 *No image*")
                             st.caption(f"{item['category']}: {item['name']}")
                 
                 # Delete button
@@ -950,6 +966,86 @@ elif page == "Settings":
                 file_name="wardrobe_backup.json",
                 mime="application/json"
             )
+
+    st.markdown("---")
+
+    # Import data
+    st.subheader("Import Wardrobe")
+    st.info("📥 Upload a previously exported wardrobe JSON file. Note: Images will not be imported, only item metadata.")
+
+    uploaded_json = st.file_uploader("Choose a wardrobe JSON file", type=["json"], key="import_json")
+
+    if uploaded_json:
+        try:
+            # Read and parse JSON
+            imported_data = json.load(uploaded_json)
+
+            # Validate structure
+            if not isinstance(imported_data, dict) or "items" not in imported_data:
+                st.error("Invalid wardrobe file format. Expected a JSON with 'items' field.")
+            else:
+                # Show preview
+                num_items = len(imported_data.get("items", []))
+                num_outfits = len(imported_data.get("outfits", []))
+
+                st.success(f"✅ Valid wardrobe file detected!")
+                st.write(f"- **{num_items}** clothing items")
+                st.write(f"- **{num_outfits}** saved outfits")
+
+                # Import options
+                import_mode = st.radio(
+                    "Import mode:",
+                    ["Merge with existing wardrobe", "Replace entire wardrobe"],
+                    help="Merge will add items to your current wardrobe. Replace will delete everything and use only the imported data."
+                )
+
+                if st.button("📥 Import Wardrobe", type="primary"):
+                    if import_mode == "Replace entire wardrobe":
+                        # Clear existing data
+                        for item in wardrobe["items"]:
+                            if os.path.exists(item["image_path"]):
+                                os.remove(item["image_path"])
+                            if item.get("tag_image_path") and os.path.exists(item["tag_image_path"]):
+                                os.remove(item["tag_image_path"])
+                        wardrobe = {"items": [], "outfits": []}
+
+                    # Import items (without images - user will need to re-upload)
+                    items_imported = 0
+                    for item in imported_data.get("items", []):
+                        # Skip items that are already in wardrobe (by ID)
+                        if any(existing_item["id"] == item["id"] for existing_item in wardrobe["items"]):
+                            continue
+
+                        # Mark image paths as missing
+                        item["image_path"] = ""
+                        item["tag_image_path"] = None
+
+                        wardrobe["items"].append(item)
+                        items_imported += 1
+
+                    # Import outfits
+                    outfits_imported = 0
+                    for outfit in imported_data.get("outfits", []):
+                        # Skip outfits that are already in wardrobe (by ID)
+                        if any(existing_outfit["id"] == outfit["id"] for existing_outfit in wardrobe["outfits"]):
+                            continue
+
+                        wardrobe["outfits"].append(outfit)
+                        outfits_imported += 1
+
+                    # Save
+                    save_wardrobe(wardrobe)
+                    st.session_state.wardrobe = wardrobe
+
+                    st.success(f"🎉 Import complete! Added {items_imported} items and {outfits_imported} outfits.")
+                    if items_imported > 0:
+                        st.warning("⚠️ Images were not imported. Go to 'My Closet' to edit items and upload images.")
+                    st.rerun()
+
+        except json.JSONDecodeError:
+            st.error("Invalid JSON file. Please upload a valid wardrobe export file.")
+        except Exception as e:
+            st.error(f"Error importing wardrobe: {str(e)}")
     
     st.markdown("---")
     
