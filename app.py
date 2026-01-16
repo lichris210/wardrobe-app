@@ -281,8 +281,10 @@ def get_image_base64(filepath):
 
 def display_clothing_item(item, show_delete=False):
     """Display a clothing item card."""
-    if os.path.exists(item["image_path"]):
+    if item.get("image_path") and os.path.exists(item["image_path"]):
         st.image(item["image_path"], use_container_width=True)
+    else:
+        st.markdown("📷 *No image*")
     st.caption(f"**{item['name']}**")
     st.caption(f"{item['category']} • {item['color']}")
     if show_delete:
@@ -360,262 +362,22 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS for modern, professional design
+# Custom CSS for mobile-friendly design
 st.markdown("""
 <style>
-    /* Global Styles */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-    * {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-
     .stApp {
         max-width: 100%;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     }
-
-    /* Main Content Area */
-    .main .block-container {
-        padding: 2rem 3rem;
-        max-width: 1400px;
+    .clothing-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1rem;
     }
-
-    /* Sidebar Styling */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%);
-        padding-top: 2rem;
-    }
-
-    [data-testid="stSidebar"] .css-1d391kg,
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] .stMarkdown {
-        color: #ffffff !important;
-    }
-
-    /* Headers */
-    h1 {
-        color: #1e293b;
-        font-weight: 700;
-        font-size: 2.5rem;
-        margin-bottom: 1.5rem;
-        letter-spacing: -0.02em;
-    }
-
-    h2 {
-        color: #334155;
-        font-weight: 600;
-        font-size: 1.75rem;
-        margin-top: 2rem;
-        margin-bottom: 1rem;
-    }
-
-    h3 {
-        color: #475569;
-        font-weight: 600;
-        font-size: 1.25rem;
-    }
-
-    /* Buttons - Modern Style */
-    .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 12px;
-        padding: 0.75rem 1.5rem;
-        font-weight: 600;
-        font-size: 0.95rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 6px rgba(102, 126, 234, 0.25);
-        letter-spacing: 0.02em;
-    }
-
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 15px rgba(102, 126, 234, 0.35);
-        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-    }
-
-    .stButton > button:active {
-        transform: translateY(0px);
-    }
-
-    /* Form Inputs */
-    .stTextInput > div > div > input,
-    .stTextArea > div > div > textarea,
-    .stSelectbox > div > div > select {
-        border-radius: 8px;
-        border: 2px solid #e2e8f0;
-        padding: 0.75rem;
-        transition: all 0.2s ease;
-        font-size: 0.95rem;
-    }
-
-    .stTextInput > div > div > input:focus,
-    .stTextArea > div > div > textarea:focus,
-    .stSelectbox > div > div > select:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-
-    /* Cards for Clothing Items */
-    [data-testid="column"] {
-        background: white;
-        border-radius: 16px;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        transition: all 0.3s ease;
-        border: 1px solid rgba(226, 232, 240, 0.8);
-    }
-
-    [data-testid="column"]:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
-        border-color: #667eea;
-    }
-
-    /* Images */
-    [data-testid="stImage"] img {
-        border-radius: 12px;
-        transition: all 0.3s ease;
-    }
-
-    /* File Uploader */
-    [data-testid="stFileUploader"] {
-        background: white;
-        border: 2px dashed #cbd5e1;
-        border-radius: 12px;
-        padding: 2rem;
-        transition: all 0.3s ease;
-    }
-
-    [data-testid="stFileUploader"]:hover {
-        border-color: #667eea;
-        background: #f8fafc;
-    }
-
-    /* Success/Error Messages */
-    .stSuccess {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: white;
-        border-radius: 12px;
-        padding: 1rem 1.5rem;
-        font-weight: 500;
-    }
-
-    .stError {
-        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-        color: white;
-        border-radius: 12px;
-        padding: 1rem 1.5rem;
-        font-weight: 500;
-    }
-
-    .stWarning {
-        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-        color: white;
-        border-radius: 12px;
-        padding: 1rem 1.5rem;
-        font-weight: 500;
-    }
-
-    .stInfo {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-        color: white;
-        border-radius: 12px;
-        padding: 1rem 1.5rem;
-        font-weight: 500;
-    }
-
-    /* Expander */
-    .streamlit-expanderHeader {
-        background: white;
-        border-radius: 8px;
-        border: 1px solid #e2e8f0;
-        font-weight: 500;
-    }
-
-    /* Multiselect */
-    .stMultiSelect > div > div {
-        border-radius: 8px;
-        border: 2px solid #e2e8f0;
-    }
-
-    /* Caption text */
-    .stCaption, small {
-        color: #64748b;
-        font-size: 0.875rem;
-        font-weight: 500;
-    }
-
-    /* Divider */
-    hr {
-        border: none;
-        border-top: 2px solid #e2e8f0;
-        margin: 2rem 0;
-    }
-
-    /* Spinner */
-    .stSpinner > div {
-        border-top-color: #667eea !important;
-    }
-
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 8px;
-        padding: 0.75rem 1.5rem;
-        font-weight: 500;
-    }
-
-    /* Form submit buttons */
-    .stForm [data-testid="stFormSubmitButton"] button {
-        width: 100%;
-    }
-
-    /* Custom card class for outfits */
     .outfit-display {
-        background: white;
-        padding: 2rem;
-        border-radius: 16px;
-        margin: 1.5rem 0;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        border: 1px solid #e2e8f0;
-    }
-
-    /* Scrollbar */
-    ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-    }
-
-    ::-webkit-scrollbar-track {
-        background: #f1f5f9;
-    }
-
-    ::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 4px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
-    }
-
-    /* Radio buttons */
-    .stRadio > label {
-        font-weight: 500;
-        color: #334155;
-    }
-
-    /* Improve selectbox */
-    [data-baseweb="select"] {
-        border-radius: 8px;
+        background-color: #f0f2f6;
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 1rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -724,8 +486,10 @@ elif page == "My Closet":
                 col_img, col_form = st.columns([1, 2])
                 
                 with col_img:
-                    if os.path.exists(edit_item["image_path"]):
+                    if edit_item.get("image_path") and os.path.exists(edit_item["image_path"]):
                         st.image(edit_item["image_path"], use_container_width=True)
+                    else:
+                        st.info("📷 No image - upload one below")
 
                     # Option to replace image
                     new_image = st.file_uploader(
@@ -838,8 +602,16 @@ elif page == "My Closet":
             cols = st.columns(3)
             for idx, item in enumerate(filtered_items):
                 with cols[idx % 3]:
-                    if os.path.exists(item["image_path"]):
+                    if item.get("image_path") and os.path.exists(item["image_path"]):
                         st.image(item["image_path"], use_container_width=True)
+                    else:
+                        # Show placeholder for items without images
+                        st.markdown(
+                            """<div style='background-color: #f0f2f6; padding: 60px 20px; text-align: center; border-radius: 10px; margin-bottom: 10px;'>
+                            📷<br>No image
+                            </div>""",
+                            unsafe_allow_html=True
+                        )
                     st.caption(f"**{item['name']}**")
                     st.caption(f"{item['category']} • {item['color']}")
 
@@ -1081,8 +853,10 @@ elif page == "Generate Outfit":
             for idx, (category, item) in enumerate(sorted_outfit):
                 with cols[idx]:
                     st.markdown(f"**{category}**")
-                    if os.path.exists(item["image_path"]):
+                    if item.get("image_path") and os.path.exists(item["image_path"]):
                         st.image(item["image_path"], use_container_width=True)
+                    else:
+                        st.markdown("📷 *No image*")
                     st.caption(item["name"])
             
             # Save outfit button
@@ -1130,8 +904,10 @@ elif page == "Saved Outfits":
                     cols = st.columns(len(outfit_items))
                     for idx, item in enumerate(outfit_items):
                         with cols[idx]:
-                            if os.path.exists(item["image_path"]):
+                            if item.get("image_path") and os.path.exists(item["image_path"]):
                                 st.image(item["image_path"], use_container_width=True)
+                            else:
+                                st.markdown("📷 *No image*")
                             st.caption(f"{item['category']}: {item['name']}")
                 
                 # Delete button
@@ -1190,6 +966,86 @@ elif page == "Settings":
                 file_name="wardrobe_backup.json",
                 mime="application/json"
             )
+
+    st.markdown("---")
+
+    # Import data
+    st.subheader("Import Wardrobe")
+    st.info("📥 Upload a previously exported wardrobe JSON file. Note: Images will not be imported, only item metadata.")
+
+    uploaded_json = st.file_uploader("Choose a wardrobe JSON file", type=["json"], key="import_json")
+
+    if uploaded_json:
+        try:
+            # Read and parse JSON
+            imported_data = json.load(uploaded_json)
+
+            # Validate structure
+            if not isinstance(imported_data, dict) or "items" not in imported_data:
+                st.error("Invalid wardrobe file format. Expected a JSON with 'items' field.")
+            else:
+                # Show preview
+                num_items = len(imported_data.get("items", []))
+                num_outfits = len(imported_data.get("outfits", []))
+
+                st.success(f"✅ Valid wardrobe file detected!")
+                st.write(f"- **{num_items}** clothing items")
+                st.write(f"- **{num_outfits}** saved outfits")
+
+                # Import options
+                import_mode = st.radio(
+                    "Import mode:",
+                    ["Merge with existing wardrobe", "Replace entire wardrobe"],
+                    help="Merge will add items to your current wardrobe. Replace will delete everything and use only the imported data."
+                )
+
+                if st.button("📥 Import Wardrobe", type="primary"):
+                    if import_mode == "Replace entire wardrobe":
+                        # Clear existing data
+                        for item in wardrobe["items"]:
+                            if os.path.exists(item["image_path"]):
+                                os.remove(item["image_path"])
+                            if item.get("tag_image_path") and os.path.exists(item["tag_image_path"]):
+                                os.remove(item["tag_image_path"])
+                        wardrobe = {"items": [], "outfits": []}
+
+                    # Import items (without images - user will need to re-upload)
+                    items_imported = 0
+                    for item in imported_data.get("items", []):
+                        # Skip items that are already in wardrobe (by ID)
+                        if any(existing_item["id"] == item["id"] for existing_item in wardrobe["items"]):
+                            continue
+
+                        # Mark image paths as missing
+                        item["image_path"] = ""
+                        item["tag_image_path"] = None
+
+                        wardrobe["items"].append(item)
+                        items_imported += 1
+
+                    # Import outfits
+                    outfits_imported = 0
+                    for outfit in imported_data.get("outfits", []):
+                        # Skip outfits that are already in wardrobe (by ID)
+                        if any(existing_outfit["id"] == outfit["id"] for existing_outfit in wardrobe["outfits"]):
+                            continue
+
+                        wardrobe["outfits"].append(outfit)
+                        outfits_imported += 1
+
+                    # Save
+                    save_wardrobe(wardrobe)
+                    st.session_state.wardrobe = wardrobe
+
+                    st.success(f"🎉 Import complete! Added {items_imported} items and {outfits_imported} outfits.")
+                    if items_imported > 0:
+                        st.warning("⚠️ Images were not imported. Go to 'My Closet' to edit items and upload images.")
+                    st.rerun()
+
+        except json.JSONDecodeError:
+            st.error("Invalid JSON file. Please upload a valid wardrobe export file.")
+        except Exception as e:
+            st.error(f"Error importing wardrobe: {str(e)}")
     
     st.markdown("---")
     
